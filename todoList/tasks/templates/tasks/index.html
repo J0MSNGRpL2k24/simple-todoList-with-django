@@ -1,0 +1,129 @@
+{% load static %}
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>GGMU Todo List</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <style>
+        body { 
+            background-image: linear-gradient(rgba(0, 0, 0, 0.6), rgba(0, 0, 0, 0.6)), 
+                              url("{% static 'tasks/ggemyu.jpeg' %}");
+            background-size: cover;
+            background-position: center;
+            background-attachment: fixed;
+            background-repeat: no-repeat;
+            min-height: 100vh;
+            margin: 0;
+        }
+        .todo-container { 
+            color: white;
+            max-width: 500px; 
+            margin: 50px auto; 
+            background: rgba(82, 3, 3, 0.9); /* Merah MU */
+            padding: 30px; 
+            border-radius: 15px; 
+            box-shadow: 0 4px 15px rgba(0,0,0,0.3); 
+        }
+        .completed { text-decoration: line-through; opacity: 0.6; }
+        /* Agar list item tidak putih polos (kontras dengan merah) */
+        .list-group-item { background: rgba(255, 255, 255, 0.1); color: white; border: 1px solid rgba(255,255,255,0.2); }
+        .text-muted { color: #ccc !important; }
+    </style>
+</head>
+<body>
+
+<div class="todo-container">
+   <h3 class="text-center mb-4 d-flex align-items-center justify-content-center">
+    <img src="{% static 'tasks/manutd.png' %}" alt="Logo MU" style="width: 45px; height: auto; margin-right: 15px;">
+    GGMU Todo List
+</h3>
+    <div class="input-group mb-3">
+        <input type="text" id="taskInput" class="form-control" placeholder="Any tasks for today?">
+        <button type="button" class="btn btn-primary" onclick="addTask(event)">Tambah</button>
+    </div>
+
+    <ul id="taskList" class="list-group">
+        </ul>
+</div>
+
+<script>
+    const API_URL = '/api/tasks/';
+
+    // 1. Ambil Data (GET)
+    async function fetchTasks() {
+        const response = await fetch(API_URL);
+        const tasks = await response.json();
+        const list = document.getElementById('taskList');
+        
+        list.innerHTML = ''; // Membersihkan list lama agar tidak duplikat visual
+        
+        tasks.forEach(task => {
+            const waktu = new Date(task.created_at).toLocaleString('id-ID', {
+                hour: '2-digit',
+                minute: '2-digit'
+            });
+
+            list.innerHTML += `
+                <li class="list-group-item d-flex justify-content-between align-items-center">
+                    <div>
+                        <span class="${task.is_completed ? 'completed' : ''}">${task.title}</span>
+                        <br><small class="text-muted">Dibuat: ${waktu}</small>
+                    </div>
+                    <div>
+                        <button type="button" class="btn btn-sm ${task.is_completed ? 'btn-warning' : 'btn-success'}" 
+                                onclick="toggleTask(${task.id}, ${task.is_completed})">
+                            ${task.is_completed ? 'Undo' : 'Selesai'}
+                        </button>
+                        <button type="button" class="btn btn-sm btn-danger" onclick="deleteTask(${task.id})">Hapus</button>
+                    </div>
+                </li>`;
+        });
+    }
+
+    // 2. Tambah Data (POST)
+    async function addTask(event) {
+        if (event) event.preventDefault(); 
+
+        const input = document.getElementById('taskInput');
+        const title = input.value;
+        
+        if (!title.trim()) return; // Jangan add kalau cuma spasi
+
+        await fetch(API_URL, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ title: title, is_completed: false })
+        });
+
+        input.value = ''; 
+        fetchTasks(); 
+    }
+
+    // 3. Update Status (PATCH)
+    async function toggleTask(id, currentStatus) {
+        await fetch(`${API_URL}${id}/`, {
+            method: 'PATCH',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ is_completed: !currentStatus })
+        });
+        fetchTasks();
+    }
+
+    // 4. Hapus Data (DELETE)
+    async function deleteTask(id) {
+        if (!confirm('Yakin mau hapus?')) return;
+        
+        await fetch(`${API_URL}${id}/`, {
+            method: 'DELETE',
+        });
+        
+        fetchTasks();
+    }
+
+    // WAJIB: Panggil fungsi ini agar saat pertama buka, data langsung muncul
+    fetchTasks();
+</script>
+</body>
+</html>
